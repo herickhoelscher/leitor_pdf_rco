@@ -1,12 +1,14 @@
 import os
+import tkinter as tk
 from core.extrair_tabela_frequencia import extrair_tabela_frequencia
 from core.extrair_total_faltas import extrair_total_faltas
 from core.relatorio import gerar_relatorio
 from core.comparador import validar_pdf_resultado
+from core.interface import App
 
 def main():
     # Pasta onde estão todos os PDFs
-    pasta = r"C:\Users\heric\OneDrive\Desktop\leitordepdf\PDFsacademicos"
+    pasta = r"C:\Users\HerickHenrickNeumann\Desktop\pdfs_rco"
 
     # Lista todos os arquivos PDF
     pdfs = [f for f in os.listdir(pasta) if f.lower().endswith(".pdf")]
@@ -45,4 +47,6 @@ def main():
     print("\n✅ CONCLUÍDO!")
 
 if __name__ == "__main__":
-    main()
+    root = tk.Tk()
+    app = App(root)
+    root.mainloop()

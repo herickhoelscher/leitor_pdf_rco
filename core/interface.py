@@ -1,8 +1,11 @@
 import os
 import tkinter as tk
 from tkinter import filedialog, scrolledtext, messagebox
-from extrair_tabela_frequencia import extrair_tabela_frequencia
-from extrair_total_faltas import extrair_total_faltas
+from .extrair_tabela_frequencia import extrair_tabela_frequencia
+from .extrair_total_faltas import extrair_total_faltas
+from .relatorio import gerar_relatorio
+
+
 
 class App:
     def __init__(self, root):
@@ -76,7 +79,10 @@ class App:
             caminho = os.path.join(self.pasta, pdf)
             self._adicionar_relatorio(f"\n📄 Lendo: {pdf}\n")
 
-            datas, alunos = extrair_tabela_frequencia(caminho)
+            datas, alunos, mensagem = extrair_tabela_frequencia(caminho)
+            if mensagem:
+                self._adicionar_relatorio(f"{mensagem}\n")
+                
             if not datas:
                 self._adicionar_relatorio("⚠️  Tabela de frequência não encontrada.\n")
                 continue
@@ -87,11 +93,10 @@ class App:
                 faltas_dias = [datas[i] for i, p in enumerate(pres) if p == "F"]
                 if faltas_dias:
                     calc = len(faltas_dias)
-                    ofc = total_faltas.get(nome, "N/D")
-                    status = "OK" if ofc == calc else f"ERRO ({ofc})"
+                    ofc = total_faltas.get(nome, "")
                     self._adicionar_relatorio(f"{nome}\n")
                     self._adicionar_relatorio(f"   Faltou: {', '.join(faltas_dias)}\n")
-                    self._adicionar_relatorio(f"   Total: {calc} | Oficial: {ofc} → {status}\n\n")
+                    self._adicionar_relatorio(f"   Total: {calc} \n\n")
 
         messagebox.showinfo("Concluído", "Processamento finalizado! Agora você pode salvar o relatório.")
 
