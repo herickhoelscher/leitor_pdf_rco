@@ -65,4 +65,8 @@ def extrair_tabela_frequencia(caminho_pdf):
                 presencas = [c for c in presencas_raw if c in "CF"]
                 alunos[nome] = presencas[:len(datas)]
 
-        return datas, alunos
+        mensagem = None
+        if alunos and all(all(p == "C" for p in pres) for pres in alunos.values()):
+            mensagem = "Nenhum aluno faltou"
+
+        return datas, alunos, mensagem
