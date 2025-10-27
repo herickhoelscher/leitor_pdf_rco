@@ -79,7 +79,18 @@ class App:
             caminho = os.path.join(self.pasta, pdf)
             self._adicionar_relatorio(f"\n📄 Lendo: {pdf}\n")
 
-            datas, alunos, mensagem = extrair_tabela_frequencia(caminho)
+            datas1, alunos1, mensagem = extrair_tabela_frequencia(caminho)
+            datas2, alunos2, mensagem2 = extrair_tabela_frequencia(caminho)
+
+            if datas1 != datas2 or alunos1 != alunos2:
+                self._adicionar_relatorio("⚠️ Inconsistência detectada entre leituras do PDF!\n")
+                continue
+
+            datas = datas1
+            alunos = alunos1
+
+            total_faltas = extrair_total_faltas(caminho)
+
             if mensagem:
                 self._adicionar_relatorio(f"{mensagem}\n")
                 
