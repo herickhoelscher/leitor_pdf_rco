@@ -1,72 +1,123 @@
 import pdfplumber
 import re
 
+MESES_PAT = r'(?:jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)'
+MESES_NUM = {
+    'jan': 1, 'fev': 2, 'mar': 3, 'abr': 4, 'mai': 5, 'jun': 6,
+    'jul': 7, 'ago': 8, 'set': 9, 'out': 10, 'nov': 11, 'dez': 12,
+}
+
+_TAG_RE = re.compile(
+    r'\s+(?:Rema|Remanejad\w*|Trans|Transf\w*|Nova|Nov|Ex|EX)\b',
+    re.IGNORECASE,
+)
+
+
+def _normalizar_datas(texto):
+    """'10fev' → '10 fev', '03mar' → '03 mar'."""
+    return re.sub(
+        r'(\d{1,2})(jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)',
+        r'\1 \2', texto, flags=re.IGNORECASE,
+    )
+
+
+def _extrair_datas(linhas):
+    """
+    Tenta encontrar as datas por dois métodos:
+    1) Linha com pares dia+mês: '10 fev 24 fev 03 mar ...'
+    2) Duas linhas separadas: '10 24 03 ...' e 'fev fev mar ...'
+    Retorna lista de strings como '10 fev', '03 mar', etc.
+    """
+    # Método 1 — datas combinadas numa linha (formato atual)
+    for linha in linhas:
+        encontradas = re.findall(
+            r'\b(\d{1,2})\s+(' + MESES_PAT + r')\b',
+            linha, re.IGNORECASE,
+        )
+        if len(encontradas) >= 3:
+            return [f"{d} {m.lower()}" for d, m in encontradas]
+
+    # Método 2 — dias e meses em linhas separadas (formato antigo)
+    linha_dias = None
+    linha_meses = None
+    for linha in linhas:
+        if re.match(r'^\d{2}(\s+\d{2}){3,}', linha):
+            linha_dias = linha
+        if re.match(r'^(' + MESES_PAT + r')(\s+\w{3})+', linha, re.IGNORECASE):
+            linha_meses = linha
+        if linha_dias and linha_meses:
+            break
+
+    if linha_dias and linha_meses:
+        dias = linha_dias.split()
+        meses = linha_meses.split()
+        datas = [f"{dias[i]} {meses[i].lower()}"
+                 for i in range(min(len(dias), len(meses)))]
+        if len(datas) >= 3:
+            return datas
+
+    return []
+
+
 def extrair_tabela_frequencia(caminho_pdf):
     """
     Lê a tabela de frequência da página 1.
     Retorna:
-        datas: lista de strings "16 set", "18 set", ...
-        alunos: dict {nome: [C, F, C, ...]}
+        datas:    lista de strings ['10 fev', '24 fev', '03 mar', ...]
+        alunos:   dict {nome: ['C', 'F', 'D', '-', ...]}
+        mensagem: string ou None
     """
     with pdfplumber.open(caminho_pdf) as pdf:
-        if len(pdf.pages) < 1:
-            return None, None
+        if not pdf.pages:
+            return [], {}, None
+        texto = pdf.pages[0].extract_text() or ""
 
-        pagina = pdf.pages[0]
-        texto = pagina.extract_text()
-        if not texto:
-            return None, None
+    # Normaliza '10fev' → '10 fev'
+    texto = _normalizar_datas(texto)
+    linhas = [l.strip() for l in texto.split("\n") if l.strip()]
 
-        linhas = [linha.strip() for linha in texto.split("\n") if linha.strip()]
+    datas = _extrair_datas(linhas)
+    if not datas:
+        return [], {}, None
 
-        print("\n=== DEBUG: Linhas extraídas da página 1 ===")
-        for i, linha in enumerate(linhas):
-            print(f"{i+1:02}: {linha}")
-        print("===========================================\n")
+    # ── Extrai alunos ─────────────────────────────────────────────
+    ignorar = {
+        "NOME DO ALUNO", "HISTORIA", "TURMA", "REGISTRO", "ARTE",
+        "MATEMATICA", "PORTUGUÊS", "CIENCIAS", "GEOGRAFIA", "FISICA",
+        "QUIMICA", "BIOLOGIA", "EDUCAÇÃO", "FILOSOFIA", "SOCIOLOGIA",
+        "INGLES", "ESPANHOL", "PRODUCAO", "SECRETARIA", "DONADUZZI",
+        "SERIAÇÃO", "ANO LETIVO", "ESTADO DO", "CURSO FUND",
+    }
 
-        # === ENCONTRA LINHAS DAS DATAS (dias e meses) ===
-        linha_dias = None
-        linha_meses = None
-        for i, linha in enumerate(linhas):
-            if re.match(r"^\d{2}(\s+\d{2}){3,}", linha):  # ex: 16 18 23 25 30 ...
-                linha_dias = linha
-            if re.match(r"^(jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)(\s+\w{3})+", linha, re.IGNORECASE):
-                linha_meses = linha
-            if linha_dias and linha_meses:
-                break
+    alunos = {}
+    for linha in linhas:
+        if any(x in linha.upper() for x in ignorar):
+            continue
+        if re.match(
+            r'^(Manhã|Tarde|Noite|quarta|segunda|terça|quinta|sexta|sábado)\b',
+            linha, re.IGNORECASE,
+        ):
+            continue
 
-        if not (linha_dias and linha_meses):
-            return None, None
+        linha_limpa = _TAG_RE.sub('', linha)
 
-        # === COMBINA DIAS E MESES ===
-        dias = linha_dias.split()
-        meses = linha_meses.split()
-        datas = []
-        for i in range(min(len(dias), len(meses))):
-            datas.append(f"{dias[i]} {meses[i]}")
+        m = re.match(r'^(.+?)\s+(\d+)\s+((?:[CFD\-]\s*)+)$', linha_limpa.strip())
+        if not m:
+            continue
 
-        if len(datas) < 5:
-            return None, None
+        nome = m.group(1).strip()
+        if len(nome) < 5 or not re.search(r'[A-ZÁÉÍÓÚÂÊÔÃÕÇ]{3,}', nome):
+            continue
 
-        # === EXTRAI ALUNOS E PRESENÇAS ===
-        alunos = {}
-        for linha in linhas:
-            linha = linha.strip()
+        tokens = re.findall(r'[CFD\-]', m.group(3))
+        if tokens:
+            alunos[nome] = tokens[:len(datas)]
 
-            # ignora cabeçalhos
-            if any(x in linha.upper() for x in ["NOME DO ALUNO", "HISTORIA", "TURMA", "REGISTRO"]):
-                continue
+    if not alunos:
+        return datas, {}, "Nenhum aluno encontrado"
 
-            # Exemplo: "ANNA CLARA WERNER DE MORAES 1 C C C C C..."
-            match = re.match(r"(.+?)\s+\d+\s+([CF\s-]+)$", linha)
-            if match:
-                nome = match.group(1).strip()
-                presencas_raw = match.group(2).replace(" ", "").replace("-", "")
-                presencas = [c for c in presencas_raw if c in "CF"]
-                alunos[nome] = presencas[:len(datas)]
+    mensagem = None
+    if all(all(p == "C" for p in pres) for pres in alunos.values()):
+        mensagem = "Nenhum aluno faltou"
 
-        mensagem = None
-        if alunos and all(all(p == "C" for p in pres) for pres in alunos.values()):
-            mensagem = "Nenhum aluno faltou"
-
-        return datas, alunos, mensagem
+    return datas, alunos, mensagem
