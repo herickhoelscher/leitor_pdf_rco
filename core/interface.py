@@ -43,7 +43,9 @@ class App:
         self.txt_relatorio = ""
         self._dados_brutos = []
         self._dados_ricos  = []
-        self._mapa_anonimos = {}   # {nome_real: "Aluno 01"}
+        self._mapa_anonimos  = {}   # {nome_real: "Aluno 01"}
+        self._mapa_escolas   = {}   # {escola_real: "Escola 01"}
+        self._mapa_profs     = {}   # {prof_real: "Professor 01"}
         self._modo_apres = tk.BooleanVar(value=False)
 
         self._build_ui()
@@ -242,6 +244,8 @@ class App:
         self._dados_brutos = []
         self._dados_ricos  = []
         self._mapa_anonimos = {}
+        self._mapa_escolas  = {}
+        self._mapa_profs    = {}
 
         # Mostra barra de progresso
         self._progresso_frame.grid()
@@ -325,7 +329,7 @@ class App:
                     cont = cont_por_data.get(data, {})
                     self._dados_brutos.append({
                         "arquivo":           pdf,
-                        "escola":            cabec.get("escola", ""),
+                        "escola":            self._escola(cabec.get("escola", "")),
                         "turma":             cabec.get("turma", ""),
                         "disciplina":        cabec.get("disciplina", ""),
                         "trimestre":         cabec.get("trimestre", ""),
@@ -336,7 +340,7 @@ class App:
                         "presenca":          pres[i] if i < len(pres) else "",
                         "tipo_aula":         cont.get("tipo", ""),
                         "conteudo_obs":      cont.get("conteudo", ""),
-                        "responsavel":       cont.get("responsavel", ""),
+                        "responsavel":       self._prof(cont.get("responsavel", "")),
                         "total_faltas_calc": total_calc,
                         "total_faltas_oficial": total_ofc,
                     })
@@ -376,14 +380,22 @@ class App:
                 f"Alunos em atenção: {len(alunos_risco)}\n\n"
                 f"Use 'Exportar Excel' para gerar o arquivo completo.")
 
-    def _nome(self, nome_real):
-        """Retorna o nome exibido: real ou 'Aluno XX' no modo apresentação."""
-        if not self._modo_apres.get():
-            return nome_real
-        if nome_real not in self._mapa_anonimos:
-            n = len(self._mapa_anonimos) + 1
-            self._mapa_anonimos[nome_real] = f"Aluno {n:02d}"
-        return self._mapa_anonimos[nome_real]
+    def _anon(self, valor, mapa, prefixo):
+        """Substitui valor por 'Prefixo 01' no modo apresentação."""
+        if not self._modo_apres.get() or not valor:
+            return valor
+        if valor not in mapa:
+            mapa[valor] = f"{prefixo} {len(mapa) + 1:02d}"
+        return mapa[valor]
+
+    def _nome(self, v):
+        return self._anon(v, self._mapa_anonimos, "Aluno")
+
+    def _escola(self, v):
+        return self._anon(v, self._mapa_escolas, "Escola")
+
+    def _prof(self, v):
+        return self._anon(v, self._mapa_profs, "Professor")
 
     def _log(self, texto, tag=None):
         self.textbox.insert(tk.END, texto, tag or "")
