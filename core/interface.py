@@ -39,10 +39,12 @@ class App:
         if os.path.exists(icone):
             self.root.iconbitmap(icone)
 
-        self._pdfs = []          # lista final de caminhos PDF a processar
+        self._pdfs = []
         self.txt_relatorio = ""
         self._dados_brutos = []
         self._dados_ricos  = []
+        self._mapa_anonimos = {}   # {nome_real: "Aluno 01"}
+        self._modo_apres = tk.BooleanVar(value=False)
 
         self._build_ui()
 
@@ -62,6 +64,21 @@ class App:
         tk.Label(topbar, text="Leitor de Registro de Classe Online",
                  font=("Segoe UI", 10), bg=ACCENT, fg="#bfdbfe").grid(
                  row=0, column=1, sticky="w", padx=8, pady=14)
+
+        # Modo Apresentação — oculta nomes para prints/gravações
+        apres_frame = tk.Frame(topbar, bg=ACCENT)
+        apres_frame.grid(row=0, column=2, sticky="e", padx=(0, 16))
+        tk.Checkbutton(
+            apres_frame,
+            text="Modo Apresentação",
+            variable=self._modo_apres,
+            font=("Segoe UI", 8),
+            bg=ACCENT, fg="#bfdbfe",
+            selectcolor=ACCENT_HV,
+            activebackground=ACCENT,
+            activeforeground="white",
+            cursor="hand2",
+        ).pack()
 
         # Área central ────────────────────────────────────────────
         centro = tk.Frame(self.root, bg=BG)
@@ -224,6 +241,7 @@ class App:
         self.txt_relatorio = ""
         self._dados_brutos = []
         self._dados_ricos  = []
+        self._mapa_anonimos = {}
 
         # Mostra barra de progresso
         self._progresso_frame.grid()
@@ -276,11 +294,11 @@ class App:
             from .exportar_csv import calcular_status
 
             for nome_aluno, pres in alunos.items():
-                faltas_dias = [datas[i] for i, p in enumerate(pres) if p == "F"]
-                disp_dias   = [datas[i] for i, p in enumerate(pres) if p == "D"]
-                total_calc  = len(faltas_dias)
-                total_ofc   = total_faltas.get(nome_aluno, "")
-                # '-' = não matriculado naquela data → não conta no total
+                nome_exib     = self._nome(nome_aluno)
+                faltas_dias   = [datas[i] for i, p in enumerate(pres) if p == "F"]
+                disp_dias     = [datas[i] for i, p in enumerate(pres) if p == "D"]
+                total_calc    = len(faltas_dias)
+                total_ofc     = total_faltas.get(nome_aluno, "")
                 aulas_validas = len([p for p in pres if p in ("C", "F", "D")])
                 presencas     = len([p for p in pres if p == "C"])
                 taxa          = presencas / aulas_validas if aulas_validas > 0 else 1.0
@@ -289,7 +307,7 @@ class App:
 
                 if faltas_dias or disp_dias:
                     tag_nome = "risco" if taxa < 0.80 else "falta"
-                    self._log(f"   {nome_aluno}\n", tag_nome)
+                    self._log(f"   {nome_exib}\n", tag_nome)
                     if faltas_dias:
                         self._log(f"      Faltou:     {', '.join(faltas_dias)}\n", "label")
                     if disp_dias:
@@ -298,10 +316,9 @@ class App:
                     tag_st  = "ok" if st == "Regular" else ("risco" if st == "Em Risco" else "falta")
                     self._log(f"      Faltas: {total_calc}{ofc_str}  |  Presença: {taxa_str}  |  {st}\n\n", tag_st)
                     if st in ("Em Risco", "Reprovado"):
-                        alunos_risco.append((nome_aluno, cabec.get("turma",""), cabec.get("disciplina",""), st, taxa_str))
+                        alunos_risco.append((nome_exib, cabec.get("turma",""), cabec.get("disciplina",""), st, taxa_str))
                 else:
-                    # Aluno sem faltas — aparece no relatório e no CSV normalmente
-                    self._log(f"   {nome_aluno}\n", "ok")
+                    self._log(f"   {nome_exib}\n", "ok")
                     self._log(f"      Presença: {taxa_str}  |  {st}\n", "dim")
 
                 for i, data in enumerate(datas):
@@ -314,7 +331,7 @@ class App:
                         "trimestre":         cabec.get("trimestre", ""),
                         "serie":             cabec.get("serie", ""),
                         "periodo":           cabec.get("periodo", ""),
-                        "aluno":             nome_aluno,
+                        "aluno":             nome_exib,
                         "data":              data,
                         "presenca":          pres[i] if i < len(pres) else "",
                         "tipo_aula":         cont.get("tipo", ""),
@@ -358,6 +375,15 @@ class App:
                 f"PDFs: {len(pdfs)}   Registros: {n_reg}\n"
                 f"Alunos em atenção: {len(alunos_risco)}\n\n"
                 f"Use 'Exportar Excel' para gerar o arquivo completo.")
+
+    def _nome(self, nome_real):
+        """Retorna o nome exibido: real ou 'Aluno XX' no modo apresentação."""
+        if not self._modo_apres.get():
+            return nome_real
+        if nome_real not in self._mapa_anonimos:
+            n = len(self._mapa_anonimos) + 1
+            self._mapa_anonimos[nome_real] = f"Aluno {n:02d}"
+        return self._mapa_anonimos[nome_real]
 
     def _log(self, texto, tag=None):
         self.textbox.insert(tk.END, texto, tag or "")
