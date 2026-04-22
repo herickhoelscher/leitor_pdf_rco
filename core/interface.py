@@ -35,7 +35,7 @@ class App:
         self.root.resizable(True, True)
         self.root.minsize(800, 540)
 
-        icone = os.path.join(os.path.dirname(__file__), "..", "assents", "logo.ico")
+        icone = os.path.join(os.path.dirname(__file__), "..", "assets", "logo.ico")
         if os.path.exists(icone):
             self.root.iconbitmap(icone)
 
