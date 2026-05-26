@@ -1,29 +1,61 @@
 # Leitor RCO
 
-Aplicação desktop para leitura e análise automática dos PDFs do **Registro de Classe Online (RCO)** do Estado do Paraná.
+![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=flat&logo=python&logoColor=white)
+![License](https://img.shields.io/badge/Licença-MIT-green?style=flat)
+![Status](https://img.shields.io/badge/Status-Em%20uso%20em%20produção-brightgreen?style=flat)
 
-Extrai frequência, conteúdos e observações de múltiplos PDFs e exporta tudo em **Excel (.xlsx)** pronto para uso no Power BI ou diretamente no controle de qualidade escolar.
+Aplicação desktop desenvolvida e utilizada em produção para automatizar a leitura e análise dos PDFs do **Registro de Classe Online (RCO)** do Estado do Paraná.
+
+Elimina o trabalho manual de abrir cada PDF individualmente: processa uma pasta inteira de arquivos, extrai frequência, conteúdos e observações, e exporta tudo em **Excel (.xlsx)** pronto para uso no Power BI ou controle de qualidade escolar.
+
+## Contexto
+
+O RCO é o sistema oficial de registro de aulas do Estado do Paraná. Cada professor gera um PDF por turma/disciplina, e o acompanhamento pedagógico exigia abrir e analisar esses arquivos manualmente. Esta ferramenta foi desenvolvida e implantada para automatizar esse processo, reduzindo horas de trabalho manual a segundos.
 
 ## Funcionalidades
 
-- Selecionar uma pasta inteira de PDFs ou arquivos individuais
+- Processa pastas inteiras de PDFs ou arquivos individuais
 - Extrai de cada PDF:
   - Tabela de frequência completa (Presença / Falta / Dispensa)
   - Conteúdo das aulas e observações
   - Cabeçalho: escola, turma, disciplina, série, trimestre, período
   - Total oficial de faltas (última página)
 - Calcula automaticamente taxa de presença e classifica o aluno:
-  - **Regular** (presença >= 80%)
-  - **Em Risco** (presença entre 75% e 79%)
-  - **Reprovado** (presença < 75%, mínimo legal)
+  - **Regular** — presença ≥ 80%
+  - **Em Risco** — presença entre 75% e 79%
+  - **Reprovado** — presença < 75% (mínimo legal)
 - Exibe relatório na tela com destaque visual por situação
 - Lista alunos em atenção ao final do processamento
+- **Modo apresentação** — anonimiza nomes de alunos, escola e professor para demonstrações
 - Exporta para **Excel (.xlsx)** com 3 abas:
-  - *Frequência Detalhada* (uma linha por aluno por aula, ideal para Power BI)
-  - *Resumo por Aluno* (totais consolidados por turma/disciplina)
-  - *Conteúdos* (registro de aulas e observações)
+  - *Frequência Detalhada* — uma linha por aluno por aula, ideal para Power BI
+  - *Resumo por Aluno* — totais consolidados por turma/disciplina
+  - *Conteúdos* — registro de aulas e observações
 - Exporta para **CSV** (separador `;`, encoding UTF-8 BOM, abre direto no Excel PT-BR)
 - Salva relatório textual em **.TXT**
+
+## Tecnologias
+
+- **Python 3.10+**
+- [pdfplumber](https://github.com/jsvine/pdfplumber) — extração de tabelas e texto de PDFs
+- [openpyxl](https://openpyxl.readthedocs.io/) — geração de planilhas Excel
+- **Tkinter** — interface gráfica nativa
+
+## Instalação
+
+```bash
+git clone https://github.com/herickhoelscher/leitor_pdf_rco.git
+cd leitor_pdf_rco
+pip install pdfplumber openpyxl
+python run.py
+```
+
+## Como usar
+
+1. Clique em **Escolher Pasta** para selecionar uma pasta com PDFs do RCO, ou **Escolher Arquivos** para selecionar arquivos individuais
+2. Clique em **Processar PDFs**
+3. Aguarde o processamento (barra de progresso)
+4. Use **Exportar Excel (.xlsx)** para gerar o relatório completo ou **Exportar CSV** para usar no Power BI
 
 ## Estrutura do projeto
 
@@ -42,31 +74,10 @@ leitor_pdf_rco/
 ├── assets/
 │   ├── logo.ico
 │   └── logo.png
-├── pdfs_rco/                         # Pasta padrão para os PDFs (não versionada)
-├── .gitignore
 └── README.md
 ```
 
-## Requisitos
-
-- Python 3.10+
-
-```bash
-pip install pdfplumber openpyxl
-```
-
-## Como usar
-
-```bash
-python run.py
-```
-
-1. Clique em **Escolher Pasta** para selecionar uma pasta com PDFs do RCO ou **Escolher Arquivos** para selecionar arquivos individuais
-2. Clique em **Processar PDFs**
-3. Aguarde o processamento (barra de progresso)
-4. Use **Exportar Excel (.xlsx)** para gerar o arquivo completo ou **Exportar CSV** para usar diretamente no Power BI
-
-## Colunas do CSV / Excel
+## Colunas exportadas
 
 | Coluna | Descrição |
 |---|---|
@@ -80,7 +91,7 @@ python run.py
 | Aluno | Nome completo |
 | Data | Data da aula (ex: `16 set`) |
 | Data Formatada | Data no formato `DD/MM` |
-| Presença | C = Presença, F = Falta, D = Dispensado, `-` = Não matriculado |
+| Presença | C = Presença · F = Falta · D = Dispensado · `-` = Não matriculado |
 | Total Aulas | Total de aulas no período |
 | Total Faltas (calc.) | Faltas contadas pelo sistema |
 | Taxa Presença (%) | Percentual de presença |
@@ -89,10 +100,9 @@ python run.py
 | Conteúdo / Observações | Descrição do conteúdo e observações da aula |
 | Responsável | Professor responsável |
 
-## Observações sobre o formato dos PDFs
+## Observações
 
-O sistema suporta os dois formatos de data que o RCO gera:
-
+O sistema suporta os dois formatos de data gerados pelo RCO:
 - Formato combinado: `10fev`, `24fev`, `03mar`
 - Formato separado: linha de dias + linha de meses
 
